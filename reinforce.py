@@ -81,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_episodes', dest='train_episodes', type=int,
                         default=50000, help="Number of episodes to train on.")
     parser.add_argument('--test_episodes', dest='test_episodes', type=int,
-                        default=50000, help="Number of episodes to test on.")
+                        default=100, help="Number of episodes to test on.")
     parser.add_argument('--episodes_per_eval', dest='episodes_per_eval', type=int,
                         default=500, help="Number of episodes per evaluation.")
     parser.add_argument('--lr', dest='lr', type=float,
