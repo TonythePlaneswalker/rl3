@@ -1,1 +1,1 @@
-# imitation_reinforce
+# 10-703 Deep Reinforcement Learning Assignment 3
