@@ -41,12 +41,12 @@ class Reinforce(object):
         for i in range(num_episodes):
             _, _, rewards = self.generate_episode()
             cum_rewards[i] = np.sum(rewards)
-        return cum_rewards.sum(), cum_rewards.std()
+        return cum_rewards.mean(), cum_rewards.std()
 
     def train(self, gamma=1.0):
         # Trains the model on a single episode using REINFORCE.
         states, actions, rewards = self.generate_episode()
-        g = np.cumsum([gamma ** t * rewards[t] for t in reversed(range(len(rewards)))])
+        g = np.cumsum([gamma ** t * rewards[t] for t in reversed(range(len(rewards)))]) / 100
         g = torch.autograd.Variable(torch.FloatTensor(np.flip(g, axis=0).copy()))
         pi = self.policy(states)[range(len(actions)), actions]
         loss = (g * -pi.log()).mean()
@@ -103,17 +103,17 @@ if __name__ == '__main__':
     plt.ion()
     for i in range(args.train_episodes):
         loss = reinforce.train(args.gamma)
-        print('loss', loss)
         losses.append(loss)
         # loss_fig.clear()
         loss_ax.plot(range(i+1), losses, 'r-')
         if i % args.episodes_per_eval == 0:
             mu, sigma = reinforce.eval(args.test_episodes)
+            print('loss', loss, 'reward average', mu, 'reward std', sigma)
             rewards_mean.append(mu)
             rewards_std.append(sigma)
             reward_ax.errorbar(range(0, i+1, args.episodes_per_eval),
                                rewards_mean, rewards_std, capsize=5)
-            plt.draw()
+            # plt.draw()
     plt.ioff()
     loss_fig.savefig('loss.png')
     reward_fig.savefig('rewards.png')
