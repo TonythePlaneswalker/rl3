@@ -49,7 +49,7 @@ class A2C(Reinforce):
         for t in reversed(range(T)):
             v_end = value.data[t + self.n] if t + self.n < T else 0
             R[t] = gamma ** self.n * v_end + \
-                   sum([gamma ** k * rewards[t+k] / 100for k in range(min(self.n, T - t))])
+                   sum([gamma ** k * rewards[t+k] / 100 for k in range(min(self.n, T - t))])
         R = Variable(torch.Tensor(R), requires_grad=False)
         policy_loss = (-log_pi[range(len(actions)), actions] * R).mean()
         value_loss = ((R - value) ** 2).mean()
@@ -69,6 +69,8 @@ class A2C(Reinforce):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--task_name', dest='task_name',
+                        default='A2C', help="Name of the experiment")
     parser.add_argument('--train_episodes', dest='train_episodes', type=int,
                         default=50000, help="Number of episodes to train on.")
     parser.add_argument('--test_episodes', dest='test_episodes', type=int,
@@ -92,7 +94,8 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
 
     viz = Visdom()
-    loss_plot = None
+    policy_loss_plot = None
+    value_loss_plot = None
     reward_plot = None
 
     a2c = A2C(env, args.lr, args.n)
@@ -105,16 +108,22 @@ if __name__ == '__main__':
         policy_losses.append(policy_loss)
         value_losses.append(value_loss)
         if i % args.episodes_per_plot == 0:
-            if loss_plot is None:
-                opts = dict(xlabel='episodes', ylabel='loss', legend=['policy', 'value'], showlegend=True)
-                loss_plot = viz.line(X=np.array(range(i + 1)),
-                                     Y=np.array([policy_losses, value_losses]).T, opts=opts)
+            if policy_loss_plot is None:
+                opts = dict(xlabel='episodes', ylabel='policy loss')
+                policy_loss_plot = viz.line(X=np.array(range(i + 1)), Y=np.array(policy_losses),
+                                            env=args.task_name, opts=opts)
             else:
-                begin = i - args.episodes_per_plot + 1
-                end = i + 1
-                viz.line(X=np.array(range(begin, end)),
-                         Y=np.array([policy_losses[begin:end], value_losses[begin:end]]).T,
-                         win=loss_plot, update='append')
+                viz.line(X=np.array(range(i - args.episodes_per_plot + 1, i + 1)),
+                         Y=np.array(policy_losses[i - args.episodes_per_plot + 1:i + 1]),
+                         env=args.task_name, win=policy_loss_plot, update='append')
+            if value_loss_plot is None:
+                opts = dict(xlabel='episodes', ylabel='value loss')
+                value_loss_plot = viz.line(X=np.array(range(i + 1)), Y=np.array(value_losses),
+                                           env=args.task_name, opts=opts)
+            else:
+                viz.line(X=np.array(range(i - args.episodes_per_plot + 1, i + 1)),
+                         Y=np.array(value_losses[i - args.episodes_per_plot + 1:i + 1]),
+                         env=args.task_name, win=value_loss_plot, update='append')
         if i % args.episodes_per_eval == 0:
             mu, sigma = a2c.eval(args.test_episodes)
             print('episode', i, 'policy loss', policy_loss, 'value loss', value_loss,
@@ -126,6 +135,6 @@ if __name__ == '__main__':
             plt.xlabel('episodes')
             plt.ylabel('average reward')
             if reward_plot is None:
-                reward_plot = viz.matplot(plt)
+                reward_plot = viz.matplot(plt, env=args.task_name)
             else:
-                viz.matplot(plt, win=reward_plot)
+                viz.matplot(plt, env=args.task_name, win=reward_plot)
