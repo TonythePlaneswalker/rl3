@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+from visdom import Visdom
 
 
 class Model(nn.Module):
@@ -14,16 +17,14 @@ class Model(nn.Module):
         self.fc2 = torch.nn.Linear(16, 16)
         self.relu2 = torch.nn.ReLU()
         self.fc3 = torch.nn.Linear(16, output_dim)
-        self.sm = torch.nn.Softmax(dim=0)
 
     def forward(self, inputs):
-        x = torch.autograd.Variable(torch.FloatTensor(inputs))
+        x = Variable(torch.FloatTensor(inputs))
         x = self.fc1(x)
         x = self.relu1(x)
         x = self.fc2(x)
         x = self.relu2(x)
         x = self.fc3(x)
-        x = self.sm(x)
         return x
 
 
@@ -32,8 +33,8 @@ class Reinforce(object):
 
     def __init__(self, env, lr):
         self.env = env
-        self.policy = Model(env.observation_space.shape[0], env.action_space.n)
-        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr)
+        self.model = Model(env.observation_space.shape[0], env.action_space.n)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
 
     def eval(self, num_episodes):
         # Tests the model on n episodes
@@ -46,16 +47,16 @@ class Reinforce(object):
     def train(self, gamma=1.0):
         # Trains the model on a single episode using REINFORCE.
         states, actions, rewards = self.generate_episode()
-        g = np.cumsum([gamma ** t * rewards[t] for t in reversed(range(len(rewards)))]) / 100
-        g = torch.autograd.Variable(torch.FloatTensor(np.flip(g, axis=0).copy()))
-        pi = self.policy(states)[range(len(actions)), actions]
-        loss = (g * -pi.log()).mean()
+        g = np.flip(np.cumsum([gamma ** t * rewards[t] for t in reversed(range(len(rewards)))]), axis=0).copy()
+        g = Variable(torch.FloatTensor(g / 100), requires_grad=False)
+        log_pi = F.log_softmax(self.model(states), dim=0)
+        loss = (g * -log_pi[range(len(actions)), actions]).mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         return loss.data[0]
 
-    def generate_episode(self, render=False):
+    def generate_episode(self):
         # Generates an episode by executing the current policy in the given env.
         # Returns:
         # - a list of states, indexed by time step
@@ -67,7 +68,7 @@ class Reinforce(object):
         state = self.env.reset()
         done = False
         while not done:
-            pi = self.policy(state)
+            pi = F.softmax(self.model(state), dim=0)
             action = pi.multinomial(1).data[0]
             actions.append(action)
             states.append(state)
@@ -92,28 +93,30 @@ if __name__ == '__main__':
 
     env = gym.make('LunarLander-v2')
     reinforce = Reinforce(env, args.lr)
-    loss_fig, loss_ax = plt.subplots()
-    loss_ax.set_title('Training loss')
-    # loss_line = plt.plot(0, 0, 'r-')
-    reward_fig, reward_ax = plt.subplots()
-    reward_ax.set_title('Testing reward')
+    viz = Visdom()
+    loss_plot = None
+    reward_plot = None
     losses = []
     rewards_mean = []
     rewards_std = []
-    plt.ion()
     for i in range(args.train_episodes):
         loss = reinforce.train(args.gamma)
         losses.append(loss)
-        # loss_fig.clear()
-        loss_ax.plot(range(i+1), losses, 'r-')
+        if loss_plot is None:
+            loss_plot = viz.line(X=np.array([i]), Y=np.array([loss]), name='Training loss')
+        else:
+            viz.line(X=np.array([i]), Y=np.array([loss]), win=loss_plot, update='append')
         if i % args.episodes_per_eval == 0:
             mu, sigma = reinforce.eval(args.test_episodes)
-            print('loss', loss, 'reward average', mu, 'reward std', sigma)
+            print('episode', i, 'loss', loss, 'reward average', mu, 'reward std', sigma)
             rewards_mean.append(mu)
             rewards_std.append(sigma)
-            reward_ax.errorbar(range(0, i+1, args.episodes_per_eval),
+            plt.errorbar(range(0, i+1, args.episodes_per_eval),
                                rewards_mean, rewards_std, capsize=5)
-            # plt.draw()
-    plt.ioff()
-    loss_fig.savefig('loss.png')
-    reward_fig.savefig('rewards.png')
+            plt.xlabel('number of training episodes')
+            plt.ylabel('reward')
+            if reward_plot is None:
+                reward_plot = viz.matplot(plt)
+            else:
+                viz.close(reward_plot)
+                reward_plot = viz.matplot(plt)
