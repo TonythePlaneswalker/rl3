@@ -52,7 +52,7 @@ class A2C(Reinforce):
             R[t] = gamma ** self.n * v_end + \
                    sum([gamma ** k * rewards[t+k] / 100 for k in range(min(self.n, T - t))])
         R = self._array2var(R, requires_grad=False)
-        policy_loss = (-log_pi[range(T), actions] * R).mean()
+        policy_loss = (-log_pi[range(T), actions] * (R - value.detach())).mean()
         value_loss = ((R - value) ** 2).mean()
         loss = policy_loss + value_loss
         self.optimizer.zero_grad()
