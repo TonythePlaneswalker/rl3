@@ -35,13 +35,19 @@ class Reinforce(object):
         self.model = Model(env.observation_space.shape[0], env.action_space.n)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
 
+    def _array2var(self, array):
+        var = Variable(torch.Tensor(array))
+        if torch.cuda.is_available():
+            var = var.cuda()
+        return var
+
     def train(self, gamma=1.0):
         # Trains the model on a single episode using REINFORCE.
         states, actions, rewards = self.generate_episode()
-        log_pi = self.model(Variable(torch.Tensor(states)))
-        R = np.flip(np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(len(rewards)))]), axis=0).copy()
-        R = Variable(torch.Tensor(R), requires_grad=False)
-        loss = (-log_pi[range(len(actions)), actions] * R).mean()
+        log_pi = self.model(self._array2var(states))
+        R = np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(len(rewards)))])
+        R = np.flip(R, axis=0).copy()
+        loss = (-log_pi[range(len(actions)), actions] * self._array2var(R)).mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -57,7 +63,7 @@ class Reinforce(object):
 
     def select_action(self, state):
         # Select the action to take by sampling from the policy model
-        log_pi = self.model(Variable(torch.Tensor(state)))
+        log_pi = self.model(self._array2var(state))
         pi = torch.distributions.Categorical(log_pi.exp())
         action = pi.sample().data[0]
         return action
@@ -95,11 +101,11 @@ if __name__ == '__main__':
     parser.add_argument('--episodes_per_plot', dest='episodes_per_plot', type=int,
                         default=50, help="Number of episodes between each plot update.")
     parser.add_argument('--lr', dest='lr', type=float,
-                        default=5e-4, help="The learning rate.")
+                        default=0.001, help="The learning rate.")
     parser.add_argument('--gamma', dest='gamma', type=float,
-                        default=1.0, help="The discount factor.")
+                        default=0.99, help="The discount factor.")
     parser.add_argument('--seed', dest='seed', type=int,
-                        default=110, help="The random seed.")
+                        default=123, help="The random seed.")
     args = parser.parse_args()
 
     env = gym.make('LunarLander-v2')

@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 from visdom import Visdom
 from reinforce import Reinforce
 
@@ -45,18 +44,14 @@ class A2C(Reinforce):
     def train(self, gamma=1.0):
         # Trains the model on a single episode using A2C.
         states, actions, rewards = self.generate_episode()
-        states = Variable(torch.Tensor(states))
-        states = states.cuda() if torch.cuda.is_available() else states
-        log_pi, value = self.model(states)
+        log_pi, value = self.model(self._array2var(states))
         T = len(rewards)
         R = np.zeros(T)
         for t in reversed(range(T)):
             v_end = value.data[t + self.n] if t + self.n < T else 0
             R[t] = gamma ** self.n * v_end + \
                    sum([gamma ** k * rewards[t+k] / 100 for k in range(min(self.n, T - t))])
-        R = Variable(torch.Tensor(R), requires_grad=False)
-        R = R.cuda() if torch.cuda.is_available() else R
-        policy_loss = (-log_pi[range(len(actions)), actions] * R).mean()
+        policy_loss = (-log_pi[range(len(actions)), actions] * self._array2var(R)).mean()
         value_loss = ((R - value) ** 2).mean()
         loss = policy_loss + value_loss
         self.optimizer.zero_grad()
@@ -66,9 +61,7 @@ class A2C(Reinforce):
 
     def select_action(self, state):
         # Select the action to take by sampling from the policy model
-        state = Variable(torch.Tensor(state))
-        state = state.cuda() if torch.cuda.is_available() else state
-        log_pi, _ = self.model(state)
+        log_pi, _ = self.model(self._array2var(state))
         pi = torch.distributions.Categorical(log_pi.exp())
         action = pi.sample().data[0]
         return action
@@ -87,13 +80,13 @@ if __name__ == '__main__':
     parser.add_argument('--episodes_per_plot', dest='episodes_per_plot', type=int,
                         default=50, help="Number of episodes between each plot update.")
     parser.add_argument('-n', dest='n', type=int,
-                        default=1, help="Number steps in a trace.")
+                        default=20, help="Number steps in a trace.")
     parser.add_argument('--lr', dest='lr', type=float,
-                        default=5e-4, help="The learning rate.")
+                        default=0.001, help="The learning rate.")
     parser.add_argument('--gamma', dest='gamma', type=float,
-                        default=1.0, help="The discount factor.")
+                        default=0.99, help="The discount factor.")
     parser.add_argument('--seed', dest='seed', type=int,
-                        default=110, help="The random seed.")
+                        default=123, help="The random seed.")
     args = parser.parse_args()
 
     env = gym.make('LunarLander-v2')
