@@ -10,11 +10,11 @@ from visdom import Visdom
 
 
 class Model(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, state_dim, num_actions):
         super(Model, self).__init__()
-        self.fc1 = torch.nn.Linear(input_dim, 16)
+        self.fc1 = torch.nn.Linear(state_dim, 16)
         self.fc2 = torch.nn.Linear(16, 16)
-        self.fc3 = torch.nn.Linear(16, output_dim)
+        self.fc3 = torch.nn.Linear(16, num_actions)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))

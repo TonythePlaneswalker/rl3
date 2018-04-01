@@ -37,13 +37,17 @@ class A2C(Reinforce):
         # - n: The value of N in N-step A2C.
         self.env = env
         self.model = Model(env.observation_space.shape[0], env.action_space.n)
+        if torch.cuda.is_available():
+            self.model.cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
         self.n = n
 
     def train(self, gamma=1.0):
         # Trains the model on a single episode using A2C.
         states, actions, rewards = self.generate_episode()
-        log_pi, value = self.model(Variable(torch.Tensor(states)))
+        states = Variable(torch.Tensor(states))
+        states = states.cuda() if torch.cuda.is_available() else states
+        log_pi, value = self.model(states)
         T = len(rewards)
         R = np.zeros(T)
         for t in reversed(range(T)):
@@ -51,6 +55,7 @@ class A2C(Reinforce):
             R[t] = gamma ** self.n * v_end + \
                    sum([gamma ** k * rewards[t+k] / 100 for k in range(min(self.n, T - t))])
         R = Variable(torch.Tensor(R), requires_grad=False)
+        R = R.cuda() if torch.cuda.is_available() else R
         policy_loss = (-log_pi[range(len(actions)), actions] * R).mean()
         value_loss = ((R - value) ** 2).mean()
         loss = policy_loss + value_loss
@@ -61,7 +66,9 @@ class A2C(Reinforce):
 
     def select_action(self, state):
         # Select the action to take by sampling from the policy model
-        log_pi, _ = self.model(Variable(torch.Tensor(state)))
+        state = Variable(torch.Tensor(state))
+        state = state.cuda() if torch.cuda.is_available() else state
+        log_pi, _ = self.model(state)
         pi = torch.distributions.Categorical(log_pi.exp())
         action = pi.sample().data[0]
         return action
