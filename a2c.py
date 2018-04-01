@@ -138,3 +138,4 @@ if __name__ == '__main__':
                 reward_plot = viz.matplot(plt, env=args.task_name)
             else:
                 viz.matplot(plt, env=args.task_name, win=reward_plot)
+    torch.save(a2c.model.state_dict(), 'models/' + args.task_name + '.model')
