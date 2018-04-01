@@ -33,6 +33,8 @@ class Reinforce(object):
         # - lr: Learning rate for the model.
         self.env = env
         self.model = Model(env.observation_space.shape[0], env.action_space.n)
+        if torch.cuda.is_available():
+            self.model.cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
 
     def _array2var(self, array):
