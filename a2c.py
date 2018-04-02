@@ -14,12 +14,14 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.fc1 = torch.nn.Linear(state_dim, 16)
         self.fc2 = torch.nn.Linear(16, 16)
+        self.fc3 = torch.nn.Linear(16, 16)
         self.policy = torch.nn.Linear(16, num_actions)
         self.value = torch.nn.Linear(16, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
         log_pi = F.log_softmax(self.policy(x), dim=-1)
         v = self.value(x)
         return log_pi, v
@@ -87,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', dest='gamma', type=float,
                         default=0.99, help="The discount factor.")
     parser.add_argument('--seed', dest='seed', type=int,
-                        default=123, help="The random seed.")
+                        default=6, help="The random seed.")
     args = parser.parse_args()
 
     env = gym.make('LunarLander-v2')
