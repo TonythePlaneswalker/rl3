@@ -131,45 +131,13 @@ class Imitation:
 
         return history.history['loss'][0], history.history['acc'][0]
 
-    def evaluate(self, env, log_dir, eval_episodes=50, render=False):
-        expert_rewards = []
-        rewards = []
-
-        # expert
-        for i in range(eval_episodes):
-            total_reward = 0.
-            observation = env.reset()
-            if render:
-                env.render()
-            while True:
-                action = np.argmax(self.expert.predict(np.expand_dims(observation, axis=0)))
-                observation, reward, done, _ = env.step(action)
-                if render:
-                    env.render()
-                if done:
-                    break
-                total_reward += reward
-            expert_rewards.append(total_reward)
-
-        # learnt
+    def evaluate(self, env, log_dir, render=False):
         self.model.load_weights("model/{}.h5".format(log_dir))
-        for i in range(eval_episodes):
-            total_reward = 0.
-            observation = env.reset()
-            if render:
-                env.render()
-            while True:
-                action = np.argmax(self.model.predict(np.expand_dims(observation, axis=0)))
-                observation, reward, done, _ = env.step(action)
-                if render:
-                    env.render()
-                if done:
-                    break
-                total_reward += reward
-            rewards.append(total_reward)
-
-        print("Expert Policy: mean: %f std: %f" % (np.mean(np.array(expert_rewards)), np.std(np.array(expert_rewards))))
-        print("Cloned Policy: mean: %f std: %f" % (np.mean(np.array(rewards)), np.std(np.array(rewards))))
+        cum_rewards = np.zeros(self.eval_episodes)
+        for i in range(self.eval_episodes):
+            _, _, rewards = self.generate_episode(self.model, env, render=False)
+            cum_rewards[i] = np.sum(rewards)
+        print("Policy: %s Cumulative rewards: mean: %f std: %f" % (log_dir, cum_rewards.mean(), cum_rewards.std()))
 
     @staticmethod
     def plot(log_dir):
