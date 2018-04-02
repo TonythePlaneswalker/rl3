@@ -47,14 +47,15 @@ class Reinforce(object):
         # Trains the model on a single episode using REINFORCE.
         states, actions, rewards = self.generate_episode()
         log_pi = self.model(self._array2var(states))
-        R = np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(len(rewards)))])
+        T = len(rewards)
+        R = np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(T))])
         R = np.flip(R, axis=0).copy()
         R = self._array2var(R, requires_grad=False)
-        loss = (-log_pi[range(len(actions)), actions] * R).mean()
+        loss = (-log_pi[range(T), actions] * R).mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return loss.data[0]
+        return loss.data[0], T
 
     def eval(self, num_episodes):
         # Tests the model on n episodes
@@ -117,6 +118,7 @@ if __name__ == '__main__':
 
     reinforce = Reinforce(env, args.lr)
     losses = np.zeros(args.train_episodes)
+    lengths = np.zeros(args.train_episodes)
     rewards_mean = np.zeros(args.train_episodes // args.episodes_per_eval + 1)
     rewards_std = np.zeros(args.train_episodes // args.episodes_per_eval + 1)
     rewards_mean[0], rewards_std[0] = reinforce.eval(args.test_episodes)
@@ -127,10 +129,11 @@ if __name__ == '__main__':
 
     viz = Visdom()
     loss_plot = None
+    length_plot = None
     reward_plot = viz.matplot(plt, env=args.task_name)
 
     for i in range(args.train_episodes):
-        losses[i] = reinforce.train(args.gamma)
+        losses[i], lengths[i] = reinforce.train(args.gamma)
         if (i + 1) % args.episodes_per_plot == 0:
             if loss_plot is None:
                 opts = dict(xlabel='episodes', ylabel='loss')
@@ -140,6 +143,14 @@ if __name__ == '__main__':
                 viz.line(X=np.arange(i - args.episodes_per_plot + 1, i + 2),
                          Y=losses[i - args.episodes_per_plot:i + 1],
                          env=args.task_name, win=loss_plot, update='append')
+            if length_plot is None:
+                opts = dict(xlabel='episodes', ylabel='episode length')
+                length_plot = viz.line(X=np.arange(1, i + 2), Y=lengths[:i + 1],
+                                     env=args.task_name, opts=opts)
+            else:
+                viz.line(X=np.arange(i - args.episodes_per_plot + 1, i + 2),
+                         Y=lengths[i - args.episodes_per_plot:i + 1],
+                         env=args.task_name, win=length_plot, update='append')
         if (i + 1) % args.episodes_per_eval == 0:
             j = (i + 1) // args.episodes_per_eval
             rewards_mean[j], rewards_std[j] = reinforce.eval(args.test_episodes)

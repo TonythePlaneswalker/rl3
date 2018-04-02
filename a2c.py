@@ -58,7 +58,7 @@ class A2C(Reinforce):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return policy_loss.data[0], value_loss.data[0]
+        return policy_loss.data[0], value_loss.data[0], T
 
     def select_action(self, state):
         # Select the action to take by sampling from the policy model
@@ -97,6 +97,7 @@ if __name__ == '__main__':
     a2c = A2C(env, args.lr, args.n)
     policy_losses = np.zeros(args.train_episodes)
     value_losses = np.zeros(args.train_episodes)
+    lengths = np.zeros(args.train_episodes)
     rewards_mean = np.zeros(args.train_episodes // args.episodes_per_eval + 1)
     rewards_std = np.zeros(args.train_episodes // args.episodes_per_eval + 1)
     rewards_mean[0], rewards_std[0] = a2c.eval(args.test_episodes)
@@ -108,10 +109,11 @@ if __name__ == '__main__':
     viz = Visdom()
     policy_loss_plot = None
     value_loss_plot = None
+    length_plot = None
     reward_plot = viz.matplot(plt, env=args.task_name)
 
     for i in range(args.train_episodes):
-        policy_losses[i], value_losses[i] = a2c.train(args.gamma)
+        policy_losses[i], value_losses[i], lengths[i] = a2c.train(args.gamma)
         if (i + 1) % args.episodes_per_plot == 0:
             if policy_loss_plot is None:
                 opts = dict(xlabel='episodes', ylabel='policy loss')
@@ -129,6 +131,14 @@ if __name__ == '__main__':
                 viz.line(X=np.arange(i - args.episodes_per_plot + 1, i + 2),
                          Y=value_losses[i - args.episodes_per_plot:i + 1],
                          env=args.task_name, win=value_loss_plot, update='append')
+            if length_plot is None:
+                opts = dict(xlabel='episodes', ylabel='episode length')
+                length_plot = viz.line(X=np.arange(1, i + 2), Y=lengths[:i + 1],
+                                     env=args.task_name, opts=opts)
+            else:
+                viz.line(X=np.arange(i - args.episodes_per_plot + 1, i + 2),
+                         Y=lengths[i - args.episodes_per_plot:i + 1],
+                         env=args.task_name, win=length_plot, update='append')
         if (i + 1) % args.episodes_per_eval == 0:
             j = (i + 1) // args.episodes_per_eval
             rewards_mean[j], rewards_std[j] = a2c.eval(args.test_episodes)
