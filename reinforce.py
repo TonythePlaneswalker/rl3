@@ -45,12 +45,12 @@ class Reinforce(object):
             var = var.cuda()
         return var
 
-    def train(self, gamma=1.0):
+    def train(self, gamma):
         # Trains the model on a single episode using REINFORCE.
         states, actions, rewards = self.generate_episode()
         log_pi = self.model(self._array2var(states))
         T = len(rewards)
-        R = np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(T))])
+        R = np.cumsum([gamma ** t * rewards[t] for t in reversed(range(T))])
         R = np.flip(R, axis=0).copy()
         R = self._array2var(R, requires_grad=False)
         loss = (-log_pi[range(T), actions] * R).mean()
@@ -114,7 +114,7 @@ if __name__ == '__main__':
                         default=6, help="The random seed.")
     args = parser.parse_args()
 
-    env = gym.make('LunarLander-v2')
+    env = gym.make('MountainCar-v0')
     env.seed(args.seed)
     torch.manual_seed(args.seed)
 

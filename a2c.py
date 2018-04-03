@@ -43,7 +43,7 @@ class A2C(Reinforce):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
         self.n = n
 
-    def train(self, gamma=1.0):
+    def train(self, gamma):
         # Trains the model on a single episode using A2C.
         states, actions, rewards = self.generate_episode()
         log_pi, value = self.model(self._array2var(states))
