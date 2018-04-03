@@ -37,7 +37,7 @@ class Reinforce(object):
         self.model = Model(env.observation_space.shape[0], env.action_space.n)
         if torch.cuda.is_available():
             self.model.cuda()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr)
 
     def _array2var(self, array, requires_grad=True):
         var = Variable(torch.Tensor(array), requires_grad)
@@ -50,7 +50,7 @@ class Reinforce(object):
         states, actions, rewards = self.generate_episode()
         log_pi = self.model(self._array2var(states))
         T = len(rewards)
-        R = np.cumsum([gamma ** t * rewards[t] for t in reversed(range(T))])
+        R = np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(T))])
         R = np.flip(R, axis=0).copy()
         R = self._array2var(R, requires_grad=False)
         loss = (-log_pi[range(T), actions] * R).mean()
