@@ -43,7 +43,7 @@ class A2C(Reinforce):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
         self.n = n
 
-    def train(self, gamma):
+    def train(self, gamma, r_scale=200):
         # Trains the model on a single episode using A2C.
         states, actions, rewards = self.generate_episode()
         log_pi, value = self.model(self._array2var(states))
@@ -52,7 +52,7 @@ class A2C(Reinforce):
         for t in reversed(range(T)):
             v_end = value.data[t + self.n] if t + self.n < T else 0
             R[t] = gamma ** self.n * v_end + \
-                   sum([gamma ** k * rewards[t+k] / 100 for k in range(min(self.n, T - t))])
+                   sum([gamma ** k * rewards[t+k] / r_scale for k in range(min(self.n, T - t))])
         R = self._array2var(R, requires_grad=False)
         policy_loss = (-log_pi[range(T), actions] * (R - value.detach())).mean()
         value_loss = ((R - value) ** 2).mean()

@@ -16,6 +16,10 @@ class Model(nn.Module):
         self.fc2 = torch.nn.Linear(16, 16)
         self.fc3 = torch.nn.Linear(16, 16)
         self.fc4 = torch.nn.Linear(16, num_actions)
+        layers = [self.fc1, self.fc2, self.fc3, self.fc4]
+        for layer in layers:
+            torch.nn.init.kaiming_uniform(layer.weight)
+            torch.nn.init.constant(layer.bias, 0)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -45,12 +49,12 @@ class Reinforce(object):
             var = var.cuda()
         return var
 
-    def train(self, gamma):
+    def train(self, gamma, r_scale=200):
         # Trains the model on a single episode using REINFORCE.
         states, actions, rewards = self.generate_episode()
         log_pi = self.model(self._array2var(states))
         T = len(rewards)
-        R = np.cumsum([gamma ** t * rewards[t] / 100 for t in reversed(range(T))])
+        R = np.cumsum([gamma ** t * rewards[t] / r_scale for t in reversed(range(T))])
         R = np.flip(R, axis=0).copy()
         R = self._array2var(R, requires_grad=False)
         loss = (-log_pi[range(T), actions] * R).mean()
