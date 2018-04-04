@@ -1,5 +1,7 @@
 import argparse
 import gym
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -17,6 +19,10 @@ class Model(nn.Module):
         self.fc3 = torch.nn.Linear(16, 16)
         self.policy = torch.nn.Linear(16, num_actions)
         self.value = torch.nn.Linear(16, 1)
+        layers = [self.fc1, self.fc2, self.fc3, self.policy, self.value]
+        for layer in layers:
+            torch.nn.init.xavier_normal(layer.weight)
+            torch.nn.init.constant(layer.bias, 0)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -45,8 +51,7 @@ class A2C(Reinforce):
 
     def train(self, gamma, r_scale=200):
         # Trains the model on a single episode using A2C.
-        states, actions, rewards = self.generate_episode()
-        log_pi, value = self.model(self._array2var(states))
+        rewards, log_pi, value = self.generate_episode()
         T = len(rewards)
         R = np.zeros(T, dtype=np.float32)
         for t in reversed(range(T)):
@@ -54,7 +59,7 @@ class A2C(Reinforce):
             R[t] = gamma ** self.n * v_end + \
                    sum([gamma ** k * rewards[t+k] / r_scale for k in range(min(self.n, T - t))])
         R = self._array2var(R, requires_grad=False)
-        policy_loss = (-log_pi[range(T), actions] * (R - value.detach())).mean()
+        policy_loss = (-log_pi * (R - value.detach())).mean()
         value_loss = ((R - value) ** 2).mean()
         loss = policy_loss + value_loss
         self.optimizer.zero_grad()
@@ -64,10 +69,33 @@ class A2C(Reinforce):
 
     def select_action(self, state):
         # Select the action to take by sampling from the policy model
-        log_pi, _ = self.model(self._array2var(state))
+        # Returns
+        # - the action
+        # - log probability of the chosen action (as a Variable)
+        # - value of the state (as a Variable)
+        log_pi, value = self.model(self._array2var(state))
         pi = torch.distributions.Categorical(log_pi.exp())
         action = pi.sample().data[0]
-        return action
+        return action, log_pi[action], value
+
+    def generate_episode(self):
+        # Generates an episode by executing the current policy in the given env.
+        # Returns:
+        # - a list of rewards, indexed by time step
+        # - a Variable of log probabilities
+        # - a Variable of state values
+        log_probs = []
+        values = []
+        rewards = []
+        state = self.env.reset()
+        done = False
+        while not done:
+            action, log_prob, value = self.select_action(state)
+            log_probs.append(log_prob)
+            values.append(value)
+            state, reward, done, _ = self.env.step(action)
+            rewards.append(reward)
+        return rewards, torch.cat(log_probs), torch.cat(values)
 
 
 if __name__ == '__main__':
@@ -89,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', dest='gamma', type=float,
                         default=0.99, help="The discount factor.")
     parser.add_argument('--seed', dest='seed', type=int,
-                        default=6, help="The random seed.")
+                        default=666, help="The random seed.")
     args = parser.parse_args()
 
     env = gym.make('LunarLander-v2')
@@ -136,7 +164,7 @@ if __name__ == '__main__':
             if length_plot is None:
                 opts = dict(xlabel='episodes', ylabel='episode length')
                 length_plot = viz.line(X=np.arange(1, i + 2), Y=lengths[:i + 1],
-                                     env=args.task_name, opts=opts)
+                                       env=args.task_name, opts=opts)
             else:
                 viz.line(X=np.arange(i - args.episodes_per_plot + 1, i + 2),
                          Y=lengths[i - args.episodes_per_plot:i + 1],
