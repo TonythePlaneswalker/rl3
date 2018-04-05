@@ -55,10 +55,11 @@ class Reinforce(object):
         # Trains the model on a single episode using REINFORCE.
         rewards, log_pi = self.generate_episode()
         T = len(rewards)
-        R = np.cumsum([gamma ** t * rewards[t] / r_scale for t in reversed(range(T))])
-        R = np.flip(R, axis=0).copy()
-        R = self._array2var(R, requires_grad=False)
-        loss = (-log_pi * R).mean()
+        G = np.zeros(T, dtype=np.float32)
+        for t in reversed(range(T)):
+            G[t] = gamma * G[(t + 1) % T] + rewards[t] / r_scale
+        G = self._array2var(G, requires_grad=False)
+        loss = (-log_pi * G).mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -114,9 +115,9 @@ if __name__ == '__main__':
     parser.add_argument('--lr', dest='lr', type=float,
                         default=0.001, help="The learning rate.")
     parser.add_argument('--gamma', dest='gamma', type=float,
-                        default=0.999, help="The discount factor.")
+                        default=0.99, help="The discount factor.")
     parser.add_argument('--r_scale', dest='r_scale', type=float,
-                        default=200, help="The absolute scale of rewards.")
+                        default=100, help="The absolute scale of rewards.")
     parser.add_argument('--seed', dest='seed', type=int,
                         default=666, help="The random seed.")
     args = parser.parse_args()
