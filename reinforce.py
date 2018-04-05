@@ -20,7 +20,7 @@ class Model(nn.Module):
         self.fc4 = torch.nn.Linear(16, num_actions)
         layers = [self.fc1, self.fc2, self.fc3, self.fc4]
         for layer in layers:
-            torch.nn.init.xavier_normal(layer.weight)
+            torch.nn.init.kaiming_normal(layer.weight)
             torch.nn.init.constant(layer.bias, 0)
 
     def forward(self, x):
@@ -34,7 +34,7 @@ class Model(nn.Module):
 class Reinforce(object):
     # Implementation of the policy gradient method REINFORCE.
 
-    def __init__(self, env, lr):
+    def __init__(self, env, lr=0.001):
         # Initializes REINFORCE.
         # Args:
         # - env: Gym environment.
@@ -51,7 +51,7 @@ class Reinforce(object):
             var = var.cuda()
         return var
 
-    def train(self, gamma, r_scale=200):
+    def train(self, gamma, r_scale):
         # Trains the model on a single episode using REINFORCE.
         rewards, log_pi = self.generate_episode()
         T = len(rewards)
@@ -114,7 +114,9 @@ if __name__ == '__main__':
     parser.add_argument('--lr', dest='lr', type=float,
                         default=0.001, help="The learning rate.")
     parser.add_argument('--gamma', dest='gamma', type=float,
-                        default=0.99, help="The discount factor.")
+                        default=0.999, help="The discount factor.")
+    parser.add_argument('--r_scale', dest='r_scale', type=float,
+                        default=200, help="The absolute scale of rewards.")
     parser.add_argument('--seed', dest='seed', type=int,
                         default=666, help="The random seed.")
     args = parser.parse_args()
@@ -140,7 +142,7 @@ if __name__ == '__main__':
     reward_plot = viz.matplot(plt, env=args.task_name)
 
     for i in range(args.train_episodes):
-        losses[i], lengths[i] = reinforce.train(args.gamma)
+        losses[i], lengths[i] = reinforce.train(args.gamma, args.r_scale)
         if (i + 1) % args.episodes_per_plot == 0:
             if loss_plot is None:
                 opts = dict(xlabel='episodes', ylabel='loss')

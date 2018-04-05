@@ -36,7 +36,7 @@ class Model(nn.Module):
 class A2C(Reinforce):
     # Implementation of N-step Advantage Actor Critic.
 
-    def __init__(self, env, lr, n):
+    def __init__(self, env, lr=0.001, n=20):
         # Initializes A2C.
         # Args:
         # - env: Gym environment.
@@ -49,7 +49,7 @@ class A2C(Reinforce):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr)
         self.n = n
 
-    def train(self, gamma, r_scale=200):
+    def train(self, gamma, r_scale):
         # Trains the model on a single episode using A2C.
         rewards, log_pi, value = self.generate_episode()
         T = len(rewards)
@@ -116,6 +116,8 @@ if __name__ == '__main__':
                         default=0.001, help="The learning rate.")
     parser.add_argument('--gamma', dest='gamma', type=float,
                         default=0.99, help="The discount factor.")
+    parser.add_argument('--r_scale', dest='r_scale', type=float,
+                        default=200, help="The absolute scale of rewards.")
     parser.add_argument('--seed', dest='seed', type=int,
                         default=666, help="The random seed.")
     args = parser.parse_args()
@@ -143,7 +145,7 @@ if __name__ == '__main__':
     reward_plot = viz.matplot(plt, env=args.task_name)
 
     for i in range(args.train_episodes):
-        policy_losses[i], value_losses[i], lengths[i] = a2c.train(args.gamma)
+        policy_losses[i], value_losses[i], lengths[i] = a2c.train(args.gamma, args.r_scale)
         if (i + 1) % args.episodes_per_plot == 0:
             if policy_loss_plot is None:
                 opts = dict(xlabel='episodes', ylabel='policy loss')
