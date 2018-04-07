@@ -14,11 +14,11 @@ if __name__ == '__main__':
     env = gym.make('LunarLander-v2')
     env = gym.wrappers.Monitor(env, args.video_dir, force=True)
     if args.agent_type == 'reinforce':
-        agent = Reinforce(env)
+        agent = Reinforce(env, 0)
     elif args.agent_type == 'a2c':
-        agent = A2C(env)
+        agent = A2C(env, 0)
     else:
         print('Unknown agent type %s' % args.agent_type)
         exit(1)
     agent.model.load_state_dict(torch.load(args.model_path, map_location=lambda storage, loc: storage))
-    agent.generate_episode()
+    print('Reward', sum(agent.generate_episode()[0]))

@@ -36,7 +36,7 @@ class Model(nn.Module):
 class A2C(Reinforce):
     # Implementation of N-step Advantage Actor Critic.
 
-    def __init__(self, env, lr=0.001, n=20):
+    def __init__(self, env, lr, n=20):
         # Initializes A2C.
         # Args:
         # - env: Gym environment.

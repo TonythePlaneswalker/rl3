@@ -34,7 +34,7 @@ class Model(nn.Module):
 class Reinforce(object):
     # Implementation of the policy gradient method REINFORCE.
 
-    def __init__(self, env, lr=0.001):
+    def __init__(self, env, lr):
         # Initializes REINFORCE.
         # Args:
         # - env: Gym environment.
@@ -51,13 +51,13 @@ class Reinforce(object):
             var = var.cuda()
         return var
 
-    def train(self, gamma, r_scale):
+    def train(self, gamma):
         # Trains the model on a single episode using REINFORCE.
         rewards, log_pi = self.generate_episode()
         T = len(rewards)
         G = np.zeros(T, dtype=np.float32)
         for t in reversed(range(T)):
-            G[t] = gamma * G[(t + 1) % T] + rewards[t] / r_scale
+            G[t] = gamma * G[(t + 1) % T] + rewards[t]
         G = self._array2var(G, requires_grad=False)
         loss = (-log_pi * G).mean()
         self.optimizer.zero_grad()
@@ -113,11 +113,9 @@ if __name__ == '__main__':
     parser.add_argument('--episodes_per_plot', dest='episodes_per_plot', type=int,
                         default=50, help="Number of episodes between each plot update.")
     parser.add_argument('--lr', dest='lr', type=float,
-                        default=0.001, help="The learning rate.")
+                        default=0.0005, help="The learning rate.")
     parser.add_argument('--gamma', dest='gamma', type=float,
-                        default=0.99, help="The discount factor.")
-    parser.add_argument('--r_scale', dest='r_scale', type=float,
-                        default=100, help="The absolute scale of rewards.")
+                        default=0.999, help="The discount factor.")
     parser.add_argument('--seed', dest='seed', type=int,
                         default=666, help="The random seed.")
     args = parser.parse_args()
@@ -143,7 +141,7 @@ if __name__ == '__main__':
     reward_plot = viz.matplot(plt, env=args.task_name)
 
     for i in range(args.train_episodes):
-        losses[i], lengths[i] = reinforce.train(args.gamma, args.r_scale)
+        losses[i], lengths[i] = reinforce.train(args.gamma)
         if (i + 1) % args.episodes_per_plot == 0:
             if loss_plot is None:
                 opts = dict(xlabel='episodes', ylabel='loss')
