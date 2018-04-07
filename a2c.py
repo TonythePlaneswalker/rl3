@@ -36,7 +36,7 @@ class Model(nn.Module):
 class A2C(Reinforce):
     # Implementation of N-step Advantage Actor Critic.
 
-    def __init__(self, env, lr, n=20):
+    def __init__(self, env, lr, n):
         # Initializes A2C.
         # Args:
         # - env: Gym environment.
@@ -67,18 +67,20 @@ class A2C(Reinforce):
         self.optimizer.step()
         return policy_loss.data[0], value_loss.data[0], T
 
-    def select_action(self, state):
+    def select_action(self, state, stochastic):
         # Select the action to take by sampling from the policy model
         # Returns
         # - the action
         # - log probability of the chosen action (as a Variable)
         # - value of the state (as a Variable)
         log_pi, value = self.model(self._array2var(state))
-        pi = torch.distributions.Categorical(log_pi.exp())
-        action = pi.sample().data[0]
-        return action, log_pi[action], value
+        if stochastic:
+            action = torch.distributions.Categorical(log_pi.exp()).sample()
+        else:
+            _, action = log_pi.max(0)
+        return action.data[0], log_pi[action], value
 
-    def generate_episode(self):
+    def generate_episode(self, stochastic=True):
         # Generates an episode by executing the current policy in the given env.
         # Returns:
         # - a list of rewards, indexed by time step
@@ -90,7 +92,7 @@ class A2C(Reinforce):
         state = self.env.reset()
         done = False
         while not done:
-            action, log_prob, value = self.select_action(state)
+            action, log_prob, value = self.select_action(state, stochastic)
             log_probs.append(log_prob)
             values.append(value)
             state, reward, done, _ = self.env.step(action)

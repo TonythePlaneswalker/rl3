@@ -65,25 +65,27 @@ class Reinforce(object):
         self.optimizer.step()
         return loss.data[0], T
 
-    def eval(self, num_episodes):
+    def eval(self, num_episodes, stochastic=True):
         # Tests the model on n episodes
         cum_rewards = np.zeros(num_episodes)
         for i in range(num_episodes):
-            rewards = self.generate_episode()[0]
+            rewards = self.generate_episode(stochastic)[0]
             cum_rewards[i] = np.sum(rewards)
         return cum_rewards.mean(), cum_rewards.std()
 
-    def select_action(self, state):
+    def select_action(self, state, stochastic):
         # Select the action to take by sampling from the policy model
         # Returns
         # - the action
         # - log probability of the chosen action (as a Variable)
         log_pi = self.model(self._array2var(state))
-        pi = torch.distributions.Categorical(log_pi.exp())
-        action = pi.sample().data[0]
-        return action, log_pi[action]
+        if stochastic:
+            action = torch.distributions.Categorical(log_pi.exp()).sample()
+        else:
+            _, action = log_pi.max(0)
+        return action.data[0], log_pi[action]
 
-    def generate_episode(self):
+    def generate_episode(self, stochastic=True):
         # Generates an episode by executing the current policy in the given env.
         # Returns:
         # - a list of rewards, indexed by time step
@@ -93,7 +95,7 @@ class Reinforce(object):
         state = self.env.reset()
         done = False
         while not done:
-            action, log_prob = self.select_action(state)
+            action, log_prob = self.select_action(state, stochastic)
             log_probs.append(log_prob)
             state, reward, done, _ = self.env.step(action)
             rewards.append(reward)
