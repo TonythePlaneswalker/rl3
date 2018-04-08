@@ -12,6 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', type=int, default=1, help="N value for N-step A2C.")
     parser.add_argument('--seed', type=int, default=666, help="Random seed for the environment.")
     parser.add_argument('--num_episodes', type=int, default=1, help="Number of test episodes.")
+    parser.add_argument('--stochastic', action='store_true', help="Use stochastic policy in testing.")
     parser.add_argument('--record', action='store_true', help="Record videos of test episodes.")
     parser.add_argument('--video_dir', help="Directory to store recorded videos.")
     args = parser.parse_args()
@@ -27,5 +28,6 @@ if __name__ == '__main__':
         print('Unknown agent type %s' % args.agent_type)
         exit(1)
     agent.model.load_state_dict(torch.load(args.model_path, map_location=lambda storage, loc: storage))
-    r_avg, r_std = agent.eval(args.num_episodes, stochastic=True)
+    stochastic = True if args.stochastic else False
+    r_avg, r_std = agent.eval(args.num_episodes, stochastic=stochastic)
     print('Reward average %.6f std %.6f' % (r_avg, r_std))

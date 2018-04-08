@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', dest='gamma', type=float,
                         default=0.99, help="The discount factor.")
     parser.add_argument('--r_scale', dest='r_scale', type=float,
-                        default=100, help="The absolute scale of rewards.")
+                        default=200, help="The absolute scale of rewards.")
     parser.add_argument('--seed', dest='seed', type=int,
                         default=666, help="The random seed.")
     args = parser.parse_args()
