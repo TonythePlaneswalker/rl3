@@ -1,4 +1,4 @@
-# 10-703 Deep Reinforcement Learning Assignment 3
+# Implementation of 3 RL Algorithms
 
 ### Installation
 First, install box2d from source:
